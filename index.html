@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>WebbleMQ, BLE to MQTT gateway</title>
+		<link href="https://fonts.googleapis.com/css?family=Oswald|Slabo+27px" rel="stylesheet">
+		<script src="https://use.fontawesome.com/45bd5d1190.js"></script>
+		<script src="https://tasm-devil.github.io/BLE2MQTT/mosquitto.js"></script>
+		<style>
+			body{font-family: 'Slabo 27px', serif;background-color:#eee6cb; color:#333333}
+			h1 {font-family: 'Oswald', sans-serif;font-size:42px;margin-bottom:30px;}
+			h2 {font-family: 'Slabo 27px', sans-serif;font-size:18px;}
+			#wrapper{width:960px;margin-left:auto;margin-right:auto;}
+			#header, #connect-button, #logging-section, #connected-devices{text-align:center;margin-bottom:30px;}
+			button {font-family: 'Oswald', serif; border:none;text-transform:uppercase;cursor:pointer;}
+			button#connect{width:200px;height:50px;font-size:20px;background-color:#0082FC; color:#DEF4E4;}
+			button#connect i {margin-right:15px;}
+			textarea{font-family:monospace;border:none;width:100%;font-size:14px;background-color:#DEF4E4}
+			button.disconnect{width:30px;height:30px;font-size:14px;background-color:#CA0000;color:#DEF4E4 }
+			table {width:100%;}
+			table th {background-color:#2FB552; padding:10px;}
+			.clear{clear:both;}
+			.hidden{display:none;}
+			#mqtt-announced-banner{padding:10px;background-color:orange;text-align:center;margin-bottom:10px;font-size:16px;color:#FFFFFF;}
+			#warn-announced{background:darkorange;color:white;padding:5px;margin:2px;}
+			#mqtt-section{text-align:center; background-color:#2FB552;padding:10px;font-size:20px;margin:2px;}
+		</style>
+	</head>
+	<body>
+		<div id="wrapper">
+
+			<div id="header">
+				<h1>BLE2MQTT</h1>
+				<h2>Web bluetooth to MQTT message relaying for NORDIC UART service.</h2>
+				<script>
+			
+				document.write("<p>Web Bluetooth " + (navigator.bluetooth?'enabled':'not enabled') + "  on this computer.</p>");
+			
+				</script>
+			</div>
+		
+			<div id="logging-section">
+				<div><textarea id="log" rows="8" disabled></textarea></div>
+			</div>
+
+			<div id="connect-button">
+				<button id="connect"><i class="fa fa-bluetooth" aria-hidden="true"></i> Connect</button>
+			</div>
+
+			<div id="connected-devices-header">
+				<div style="float:left;">
+					<h2>Connected devices</h2>
+				</div>
+				<div class="clear"></div>	
+			</div>
+			<div id="mqtt-section" class="">
+				<div>
+					MQTT Broker : mqtt.fadenstrahl.de
+				</div>
+			</div>
+
+			<div id="connected-devices">
+				<div>
+					<table id="device-listing">
+						<tr><th>Device</th><th class="mqtt">Subscribed to</th><th>Disconnect</th></tr>
+					</table>	
+				</div>
+
+			</div>
+		</div>
+
+<script>	
+
+// WebbleMQ 	//https://googlechrome.github.io/samples/web-bluetooth/device-disconnect.html
+class Webblemq {
+
+	constructor() {
+		this.device = null;
+		this.onDisconnected = this.onDisconnected.bind(this);
+
+		// Nordic UART service and characteristics
+		this.nUART = {
+			serviceUUID: '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+			txUUID: '6e400002-b5a3-f393-e0a9-e50e24dcca9e',
+			rxUUID: '6e400003-b5a3-f393-e0a9-e50e24dcca9e'
+		};
+
+		// For TX and RX chunking
+		this.chunked = [];
+		this.chunkedRX = [];
+	}
+
+	// String utils
+	str2ab(str) {
+		var buf = new ArrayBuffer(str.length);
+		var bufView = new Uint8Array(buf);
+		for (var i=0, strLen=str.length; i<strLen; i++) {
+			bufView[i] = str.charCodeAt(i);
+		}
+		return buf;
+	}
+
+	ab2str(buf) {
+		var str = String.fromCharCode.apply(null, new Uint8Array(buf));
+		return str;
+	}
+	
+	request() {
+		let options = {
+			"filters": [{
+				"services": [this.nUART.serviceUUID]
+				}]
+		};
+		return navigator.bluetooth.requestDevice(options)
+		.then(bluetoothDevice => {
+			this.device = bluetoothDevice;
+			this.device.addEventListener('gattserverdisconnected', this.onDisconnected);
+		});
+	}
+	
+	// logging util can see to textarea on page
+	log(msg, textareaID) {
+		var msgfmt = msg.replace("\n", "");
+			if(textareaID){
+				var log = document.getElementById(textareaID); // textarea
+				var update = log.innerHTML + "> " + this.device.id + msgfmt + "\n";
+				log.innerHTML = update;
+				log.scrollTop = log.scrollHeight;
+			}
+			// Output to console
+			console.log(msgfmt);
+	}
+
+	connect() {
+		if (!this.device) {
+			return Promise.reject('Device is not connected.');
+		}
+		return this.device.gatt.connect();
+	}
+
+	writeChunks() {
+
+		return this.device.gatt.getPrimaryService(this.nUART.serviceUUID)
+		.then(service => service.getCharacteristic(this.nUART.txUUID))
+		.then(characteristic => {
+			//console.log("Sending " + this.chunked[0]);
+			characteristic.writeValue(this.str2ab(this.chunked[0]))
+			.then(_ => {
+				this.chunked.shift(); // delete first
+				if(this.chunked.length > 0) {
+					this.writeChunks();
+				} else {
+					characteristic.writeValue(this.str2ab("\n"));
+				}
+			});
+		});
+	}
+
+	writeTX(data) {
+		// Chunk the data and store
+		this.chunked = data.match(/.{1,20}/g);
+		this.writeChunks().then(_ =>{
+			this.log(" <- '" + data + "'", "log");
+		});	
+	}
+	
+	startRXNotifications(listener) {
+		return this.device.gatt.getPrimaryService(this.nUART.serviceUUID)
+		.then(service => service.getCharacteristic(this.nUART.rxUUID))
+		.then(characteristic => characteristic.startNotifications())
+		.then(characteristic => characteristic.addEventListener('characteristicvaluechanged', listener));
+	}
+	
+	disconnect() {
+		if (!this.device) {
+			return Promise.reject('Device is not connected.');
+		}
+		return this.device.gatt.disconnect();
+	}
+
+	// I don't know why, but after the x-nd disconnect, this method is called x times???
+	onDisconnected(event) {
+		// Delete tracked instance
+		this.log(' disconnected from bluetooth.', "log");
+		delete device[this.device.id];
+		var deviceRow = document.getElementById('device-'+ this.device.id);
+		if (deviceRow != undefined) {
+			deviceRow.remove();
+		}
+		
+		// disconnect from MQTT broker
+		if (devMQTT[this.device.id]) {
+			devMQTT[this.device.id].disconnect();
+		}
+
+		// Delete MQTT object
+		delete devMQTT[this.device.id];
+		//console.log(devMQTT);
+	}
+}
+
+var broker =  "wss://mqtt.fadenstrahl.de:8083/";
+//  Reference object for connected devices
+var device = {};
+var buffered = {};
+var devMQTT = {};
+
+
+var wmq = {	
+	sending : false,
+
+	connect : function(){
+		// Connect to device and set up RX listener
+		// Asign device to device object for control
+		var webblemq = new Webblemq();
+		webblemq.request()
+		.then(_ => webblemq.connect())
+		.then(_ => {
+			var id = webblemq.device.id
+			// Connected
+			webblemq.log(' connected to bluetooth.', "log");
+
+			// Add to table
+			wmq.createTableEntry(webblemq.device);
+			// RX callback
+			webblemq.startRXNotifications(function(d){
+				// RX Handler
+				wmq.bufferHandler(webblemq.device.id, d.target.value.buffer);
+			});
+
+			// Assign device to device object
+			device[id] = webblemq;
+
+			// Setup MQTT connection
+			devMQTT[id] = new Mosquitto();
+
+			devMQTT[id].onconnect = function(rc){
+				//webblemq.log(" connected to MQTT" + rc, "log");
+				webblemq.log(" connected to MQTT", "log");
+			};
+
+			devMQTT[id].ondisconnect = function(rc){
+				webblemq.log(" disconnected from MQTT", "log");
+			};
+
+			// This is the main thing we're interested in here // Here is the callbackfunktion definition
+			devMQTT[id].onmessage = function(topic, payload, qos){
+				//webblemq.log(" <- MQTT-msg " + topic + "," + payload, "log");
+				// Straight to device 
+				wmq.sending = true;
+				device[id].writeTX("msg " + topic + "," + payload);
+				wmq.sending = false;
+			};
+
+			// Create MQTT connection
+			devMQTT[id].connect(broker);
+		})
+		.catch(error => { console.log(error) });
+	},
+
+	createTableEntry : function(device){
+		var devices = document.getElementById("device-listing");
+		var row = devices.insertRow(1);
+		row.setAttribute("id", "device-" + device.id);
+
+		var deviceID = row.insertCell(0);
+		deviceID.innerHTML = device.id;
+
+		var subCell = row.insertCell(1);
+		subCell.className = "mqtt";
+		subCell.setAttribute("id", "device-sub-" + device.id);
+
+		// Create disconnect button with listener
+		var disconnect = row.insertCell(2);
+		var btn = document.createElement("button");
+		btn.innerHTML = '<i class="fa fa-close" aria-hidden="true"></i>';
+		btn.className = "disconnect";
+		btn.setAttribute("value", device.id);
+		btn.addEventListener('click', wmq.disconnect, false);
+		disconnect.appendChild(btn);
+	
+	},
+
+	// funktion for the disconnect button
+	disconnect : function(){
+		// read value att from the button
+		var deviceID = this.getAttribute("value");
+		// disconnect bluetooth device
+		device[deviceID].disconnect();
+	},
+
+	bufferHandler : function(id, buffer) {
+		if (!wmq.sending) {
+			// We could have incomimg RX from multiple devices
+			// Need to track it and piece back together to relay as a message
+			
+			var chunk = new Uint8Array(buffer);
+			var strChunk = String.fromCharCode.apply(null, chunk);
+			
+			if (id in buffered) {
+				console.log("Adding to existing buffered obj");
+				// If it is, append to array held here
+				console.log(chunk);
+				buffered[id] = buffered[id].concat(strChunk);
+				// If contains \n then recall whole array and send to mshHandler
+				if (chunk.indexOf(10) > -1) {
+					console.log("contains linebreak, writing buffered obj");
+					console.log(buffered[id]);
+					wmq.msgHandler(id, buffered[id]);
+					delete buffered[id];
+				}
+			} else {
+				// if ID not in sub object then start new array and Assign
+				if (chunk.indexOf(10) > -1) {
+					// Why is above true?
+					//console.log("Writing immediately");
+					// If contains \n then send immediately to msgHandler	
+					wmq.msgHandler(id, strChunk);
+				} else {
+					console.log("Creating new buffered obj");
+					// If id not in sub object then start new array by assigning buffer
+					console.log(chunk);
+					buffered[id] = strChunk;
+				}
+			} 
+		}
+	}, 
+
+	// msgHandler gets the messages from the bufferHandler (who gets them from UART) and sends them to the MQTT-Client
+	msgHandler : function(id, msg){
+		//console.log("received from bufferhandler: " + msg);
+		// MQTT Handler for publishing on device pub topic
+		wmq.sending = true;
+		if (msg.startsWith("pub")) {
+			topicAndPayload = msg.slice(4,);
+  			separator = topicAndPayload.search(",");
+  			topic = topicAndPayload.substr(0,separator);
+  			payload = topicAndPayload.substr(separator+1,);
+  			wmq.mqtt.publish(id,topic,payload);
+		} else if (msg.startsWith("sub")){
+			topic = msg.slice(4,-1);
+			wmq.mqtt.subscribe(id,topic);
+		}
+		wmq.sending = false;
+	},
+
+	mqtt : {
+		subscribe: function(id, topic) {
+			// Add new subscription to the corresponding cell in the table
+			var subCell = document.getElementById("device-sub-" + id);
+			subCell.innerHTML += (", " + topic);
+
+			device[id].log(" -> sub " + topic , "log");
+			devMQTT[id].subscribe(topic, 0);
+		},
+		publish: function(id, topic, payload) {
+			device[id].log(" -> pub " + topic + ","+ payload, "log");
+			devMQTT[id].publish(topic, payload, 0);
+		}
+	}
+}
+
+// Connect button listener
+document.querySelector('#connect').addEventListener('click', _ => wmq.connect());
+
+</script>	
+</body>
+</html>
