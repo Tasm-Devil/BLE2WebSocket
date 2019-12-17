@@ -1,5 +1,5 @@
 # BLE2MQTT
-A browser-based WebBluetooth to MQTT relay getawey for Nordic UART
+A browser-based WebBluetooth to WebService relay getawey for Nordic UART
 
 ## Web Bluetooth relay for devices supporting Nordic UART service, Circuitpython in particular
 
@@ -7,9 +7,7 @@ A browser-based WebBluetooth to MQTT relay getawey for Nordic UART
 
 Designed primarily for use with Circuitpython. Each device has own publish and subscribe topic. 
 
-Note MQTT uses my private MQTT broker - mqtt.fadenstrahl.de and the data is public. If you fork the repo, please change the broker to one of your choosing and do not use mine.
-
-Authentication is necessary if you run this on a https server like github.io
+Secure WebService is necessary if you run this on a https server like github.io
 
 ## Enable web-bluetooth in google chrome
 
