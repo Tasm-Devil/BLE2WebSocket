@@ -3,7 +3,7 @@ A browser-based WebBluetooth to WebService relay getawey for Nordic UART
 
 ## Web Bluetooth relay for devices supporting Nordic UART service, Circuitpython in particular
 
-[Application is running here](https://tasm-devil.github.io/BLE2MQTT/)
+[Application is running here](https://tasm-devil.github.io/BLE2WebService/)
 
 Designed primarily for use with Circuitpython. Each device has own publish and subscribe topic. 
 
