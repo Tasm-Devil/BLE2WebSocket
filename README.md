@@ -1,11 +1,9 @@
-# BLE2MQTT
-A browser-based WebBluetooth to WebService relay getawey for Nordic UART
+# BLE2WebService
+A browser-based WebBluetooth to WebService relay/getawey for devices supporting [*Nordic UART Service*](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/include/bluetooth/services/nus.html), Circuitpython in particular
 
-## Web Bluetooth relay for devices supporting Nordic UART service, Circuitpython in particular
+This [Application is running here](https://tasm-devil.github.io/BLE2WebService/). Try it out!
 
-[Application is running here](https://tasm-devil.github.io/BLE2WebService/)
-
-Designed primarily for use with Circuitpython. Each device has own publish and subscribe topic. 
+It was designed primarily for use with [Circuitpython](https://learn.adafruit.com/welcome-to-circuitpython/what-is-circuitpython). Use [this repository](https://github.com/adafruit/Adafruit_CircuitPython_MiniMQTT) as a Starting Point.
 
 Secure WebService is necessary if you run this on a https server like github.io
 
@@ -17,8 +15,8 @@ Read [this article](https://github.com/WebBluetoothCG/web-bluetooth/blob/master/
 This is the perfect [tutorial](https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-the-mosquitto-mqtt-messaging-broker-on-ubuntu-18-04-quickstart) how to setup mosquitto with wss and certbot (*Let's Encrypt*)
 
 ## Roadmap
-- Write a Circuitpython-module for MQTT over BLE.
-- switch to [Eclipse Paho Javascript client](https://www.eclipse.org/paho/clients/js/) because mosquitto.js is [deprecated](https://mosquitto.org/blog/2013/05/mosquitto-javascript-client-deprecated/).
+- Make a [Webcomponent](https://www.webcomponents.org/) out of this relay
+- Rewrite and extend the GUI, using [ELM](https://elm-lang.org/).
 
 ## Contributions
 Are welcome!
