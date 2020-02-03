@@ -1,11 +1,11 @@
-# BLE2WebService
-A browser-based WebBluetooth to WebService relay/getawey for devices supporting [*Nordic UART Service*](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/include/bluetooth/services/nus.html), Circuitpython in particular
+# BLE2WebSocket
+A browser-based WebBluetooth to WebSocket relay/getawey for devices supporting [*Nordic UART Service*](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/include/bluetooth/services/nus.html), Circuitpython in particular
 
 This [Application is running here](https://tasm-devil.github.io/BLE2WebService/). Try it out!
 
 It was designed primarily for use with [Circuitpython](https://learn.adafruit.com/welcome-to-circuitpython/what-is-circuitpython). Use [this repository](https://github.com/adafruit/Adafruit_CircuitPython_MiniMQTT) as a Starting Point.
 
-Secure WebService is necessary if you run this on a https server like github.io
+Secure WebSocket is necessary if you run this on a https server like github.io
 
 ## Enable web-bluetooth in google chrome
 
