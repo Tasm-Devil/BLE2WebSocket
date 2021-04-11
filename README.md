@@ -1,7 +1,7 @@
 # BLE2WebSocket
 A browser-based WebBluetooth to WebSocket relay/getawey for devices supporting [*Nordic UART Service*](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/include/bluetooth/services/nus.html), Circuitpython in particular
 
-This [Application is running here](https://tasm-devil.github.io/BLE2WebService/). Try it out!
+This [Application is running here](https://tasm-devil.github.io/BLE2WebSocket/). Try it out!
 
 It was designed primarily for use with [Circuitpython](https://learn.adafruit.com/welcome-to-circuitpython/what-is-circuitpython). Use [this repository](https://github.com/adafruit/Adafruit_CircuitPython_MiniMQTT) as a Starting Point.
 
